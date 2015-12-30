@@ -37,7 +37,7 @@ if [ -e "~/.ivona" ]; then
 fi
 
 # cache folder
-_mp3folder="/opt/ivona/mp3/${IVONA_NAME}_${IVONA_LANG}_${IVONA_GENDER}"
+_mp3folder="/usr/share/ivona/cache/${IVONA_NAME}_${IVONA_LANG}_${IVONA_GENDER}"
 if [ ! -d "$_mp3folder" ]; then
     mkdir "$_mp3folder"
     #

@@ -27,5 +27,5 @@ pkgver() {
 package() {
 	install -Dm755 $srcdir/ivona-c/ivona "${pkgdir}/usr/bin/ivona"
     install -Dm755 $srcdir/ivona-c/ivona-cached "${pkgdir}/usr/bin/ivona-cached"
-    mkdir -pm666 "${pkgdir}/opt/ivona/mp3"
+    mkdir -pm666 "${pkgdir}/usr/share/ivona/cache"
 }
