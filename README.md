@@ -9,6 +9,7 @@ TODO
 ----
 
 - Error catching
+- Take input from stdin
 
 Limitations
 -----------
@@ -37,4 +38,4 @@ Set up the following enviroment variables:
 
 ```ivona "Hello, this is your computer speaking." | mplayer - -cache 1024```
 
-```cat textfile | ivona | mplayer - -cache 1024```
+~~```cat textfile | ivona | mplayer - -cache 1024```~~
