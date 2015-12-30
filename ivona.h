@@ -33,6 +33,7 @@
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 
+#define IVONA_MAX_DATA 8192
 #define SHA256_ASCII_LENGTH (SHA256_DIGEST_LENGTH * 2)
 // sizeof "YYYYMMDDThhmmssZ"
 #define ISO8601_LENGTH 16

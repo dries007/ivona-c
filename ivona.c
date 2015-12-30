@@ -19,6 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include <sysexits.h>
 #include "ivona.h"
 
 void ivona_key_to_string(unsigned char *hash, char *out)
@@ -55,6 +56,17 @@ void ivona_utc_yyyymmdd(time_t t, char *out)
 
 void ivona_request(char *uri_path, char *host, char *region, char *service, char *payload, char *secret, char *key, char *file, time_t time)
 {
+    FILE* bodyfile = NULL;
+    bool stdout = strcmp("-", file) == 0;
+    if (!stdout)
+    {
+        if ((bodyfile = fopen(file, "wb")) == NULL)
+        {
+            printf("File couldn't open.\n");
+            exit(EX_IOERR);
+        }
+    }
+
     //Task 1: Create a canonical request.
     char sha256_payload[SHA256_ASCII_LENGTH + 1];
     ivona_sha256(payload, sha256_payload);
@@ -63,7 +75,9 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     ivona_ISO8601_date(time, iso_time);
 
     char canonical_request[150 + sizeof(uri_path) + sizeof(host) + sizeof(region) + sizeof(service) + SHA256_ASCII_LENGTH + ISO8601_LENGTH + SHA256_ASCII_LENGTH];
-    sprintf(canonical_request, "POST\n/%s\n\ncontent-length:%d\ncontent-type:application/json\nhost:%s.%s.%s\nx-amz-date:%s\n\ncontent-length;content-type;host;x-amz-date\n%s", uri_path, (int) strlen(payload), service, region, host, iso_time, sha256_payload);
+    sprintf(canonical_request,
+            "POST\n/%s\n\ncontent-length:%d\ncontent-type:application/json\nhost:%s.%s.%s\nx-amz-date:%s\n\ncontent-length;content-type;host;x-amz-date\n%s",
+            uri_path, (int) strlen(payload), service, region, host, iso_time, sha256_payload);
 
     //Task 2: Create a string to sign
     char yyyymmdd[YYYYMMDD_LENGTH + 1];
@@ -93,7 +107,9 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     ivona_key_to_string(signature_k, signature);
 
     // Task 4: Prepare a signed request
-    sprintf(temp, "Authorization: AWS4-HMAC-SHA256 Credential=%s/%s/%s/%s/aws4_request, SignedHeaders=content-length;content-type;host;x-amz-date, Signature=%s", key, yyyymmdd, region, service, signature);
+    sprintf(temp,
+            "Authorization: AWS4-HMAC-SHA256 Credential=%s/%s/%s/%s/aws4_request, SignedHeaders=content-length;content-type;host;x-amz-date, Signature=%s",
+            key, yyyymmdd, region, service, signature);
 
     char header[strlen(temp) + 1];
     strcpy(header, temp);
@@ -101,6 +117,12 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     // Task 5: Make request
     CURL *curl = curl_easy_init();
     CURLcode res;
+
+    if (curl == NULL)
+    {
+        printf("Curl doesn't seem to exist.\n");
+        exit(EX_SOFTWARE);
+    }
 
     char url[sizeof(host) + sizeof(region) + sizeof(service) + sizeof(uri_path) + 15] = "https://";
     strcat(url, service);
@@ -114,6 +136,7 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(payload));
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
+    curl_easy_setopt(curl, CURLOPT_FAILONERROR, true);
 
     struct curl_slist *chunk = NULL;
     chunk = curl_slist_append(chunk, "Accept:");
@@ -125,17 +148,17 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
     if(res != CURLE_OK) fprintf(stderr, "curl_easy_setopt(CURLOPT_HTTPHEADER) failed: %s\n",  curl_easy_strerror(res));
 
-    FILE* bodyfile = NULL;
-    bool stdout = strcmp("-", file) == 0;
-    if (!stdout)
-    {
-        bodyfile = fopen(file, "wb");
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, bodyfile);
-    }
-
+    if (!stdout) curl_easy_setopt(curl, CURLOPT_WRITEDATA, bodyfile);
     res = curl_easy_perform(curl);
 
-    if (!stdout) fclose(bodyfile);
+    if (!stdout)
+    {
+        if (fclose(bodyfile) != 0)
+        {
+            printf("File couldn't open.\n");
+            exit(EX_IOERR);
+        }
+    }
 
     if(res != CURLE_OK) fprintf(stderr, "curl_easy_perform() failed: %s\n",  curl_easy_strerror(res));
 

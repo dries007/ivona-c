@@ -2,6 +2,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include "ivona.h"
+#include <sysexits.h>
 
 /*
  * Copyright (c) 2016 Dries007
@@ -25,7 +26,10 @@
  * THE SOFTWARE.
  */
 
-static char doc[] = "(c) 2016 - Dries007.net - Under MIT License - CLI IVONA interface. \nFor valid argument options: http://developer.ivona.com/en/speechcloud/datatypes.html";
+static char doc[] =
+        "(c) 2016 - Dries007.net - Under MIT License - CLI IVONA interface. \n"
+        "For valid argument options: http://developer.ivona.com/en/speechcloud/datatypes.html\n"
+        "Return codes follow sysexits specifications.";
 static char args_doc[] = "[string up to 8192 characters]";
 static struct argp_option options[] = {
     { "format",         'f', "format", 0, "Output format (MP3) 'MP3', 'MP4', 'OGG'", 1},
@@ -44,8 +48,9 @@ static struct argp_option options[] = {
     { 0 }
 };
 
-struct arguments {
-    char data[1024 * 8];
+struct args {
+    int datasize;
+    char data[IVONA_MAX_DATA + 1];
     char* format;
     int sample_rate;
     char* rate;
@@ -63,25 +68,27 @@ struct arguments {
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
-    struct arguments *arguments = state->input;
+    struct args *args = state->input;
     switch (key)
     {
-        case 'f': arguments->format = arg; break;
-        case 'q': arguments->sample_rate = atoi(arg); break;
-        case 'r': arguments->rate = arg; break;
-        case 'v': arguments->volume = arg; break;
-        case 's': arguments->sentence_break = atoi(arg); break;
-        case 'p': arguments->paragraph_break = atoi(arg); break;
-        case 'n': arguments->name = arg; break;
-        case 'l': arguments->language = arg; break;
-        case 'g': arguments->gender = arg; break;
-        case 'R': arguments->region = arg; break;
-        case 'K': arguments->key = arg; break;
-        case 'S': arguments->secret = arg; break;
-        case 'F': arguments->file = arg; break;
+        case 'f': args->format = arg; break;
+        case 'q': args->sample_rate = atoi(arg); break;
+        case 'r': args->rate = arg; break;
+        case 'v': args->volume = arg; break;
+        case 's': args->sentence_break = atoi(arg); break;
+        case 'p': args->paragraph_break = atoi(arg); break;
+        case 'n': args->name = arg; break;
+        case 'l': args->language = arg; break;
+        case 'g': args->gender = arg; break;
+        case 'R': args->region = arg; break;
+        case 'K': args->key = arg; break;
+        case 'S': args->secret = arg; break;
+        case 'F': args->file = arg; break;
         case ARGP_KEY_ARG:
-            strcat(arguments->data, arg);
-            strcat(arguments->data, " ");
+            args->datasize += strlen(arg);
+            if (args->datasize > IVONA_MAX_DATA) return ARGP_KEY_ERROR;
+            strcat(args->data, arg);
+            strcat(args->data, " ");
             break;
         default: return ARGP_ERR_UNKNOWN;
     }
@@ -92,31 +99,73 @@ static struct argp argp = { options, parse_opt, args_doc, doc};
 
 int main(int argc, char* argv[])
 {
-    struct arguments args;
+    struct args a;
 
-    args.data[0] = 0;
-    args.format = "MP3";
-    args.sample_rate = 22050;
-    args.rate = "default";
-    args.volume = "default";
-    args.sentence_break = 400;
-    args.paragraph_break = 650;
-    args.name = getenv("IVONA_NAME");
-    if (args.name == NULL) args.name = "Salli";
-    args.language = getenv("IVONA_LANG");
-    if (args.language == NULL) args.language = "en-US";
-    args.gender = getenv("IVONA_GENDER");
-    if (args.gender == NULL) args.gender = "Female";
-    args.region = getenv("IVONA_ENDPOINT");
-    if (args.region == NULL) args.region = "eu-west-1";
-    args.file = "-";
-    args.key = getenv("IVONA_KEY");
-    args.secret = getenv("IVONA_SECRET");
+    a.datasize = 0;
+    a.data[0] = 0;
+    a.format = "MP3";
+    a.sample_rate = 22050;
+    a.rate = "default";
+    a.volume = "default";
+    a.sentence_break = 400;
+    a.paragraph_break = 650;
+    a.name = getenv("IVONA_NAME");
+    if (a.name == NULL) a.name = "Salli";
+    a.language = getenv("IVONA_LANG");
+    if (a.language == NULL) a.language = "en-US";
+    a.gender = getenv("IVONA_GENDER");
+    if (a.gender == NULL) a.gender = "Female";
+    a.region = getenv("IVONA_ENDPOINT");
+    if (a.region == NULL) a.region = "eu-west-1";
+    a.file = "-";
+    a.key = getenv("IVONA_KEY");
+    a.secret = getenv("IVONA_SECRET");
 
-    argp_parse(&argp, argc, argv, 0, 0, &args);
+    if (argp_parse(&argp, argc, argv, 0, 0, &a) != 0)
+    {
+        if (a.datasize > IVONA_MAX_DATA)
+        {
+            printf("Data size > %d\n", IVONA_MAX_DATA);
+            exit(EX_DATAERR);
+        }
+        exit(EX_USAGE);
+    }
 
-    char payload[300 + strlen(args.data)];
-    sprintf(payload, "{\"Input\":{\"Data\":\"%s\",\"Type\":\"text/plain\"},\"OutputFormat\":{\"Codec\":\"%s\",\"SampleRate\":%d},\"Parameters\":{\"Rate\":\"%s\",\"Volume\":\"%s\",\"SentenceBreak\":%d,\"ParagraphBreak\":%d},\"Voice\":{\"Name\":\"%s\",\"Language\":\"%s\",\"Gender\":\"%s\"}}",
-            args.data, args.format, args.sample_rate, args.rate, args.volume, args.sentence_break, args.paragraph_break, args.name, args.language, args.gender);
-    ivona_request("CreateSpeech", "ivonacloud.com", args.region, "tts", payload, args.secret, args.key, args.file, time(NULL));
+    if (a.format == NULL || a.sample_rate == 0 || a.rate == NULL || a.volume == NULL || a.sentence_break == 0
+        || a.paragraph_break == 0 || a.name == NULL || a.language == NULL || a.gender == NULL || a.region == NULL
+        || a.file == NULL || a.key == NULL || a.secret == NULL) exit(EX_USAGE);
+
+    if (a.datasize == 0)
+    {
+        int c;
+        while (EOF != (c = fgetc(stdin)))
+        {
+            a.data[a.datasize++] = (char) c;
+            if (a.datasize == IVONA_MAX_DATA)
+            {
+                printf("Data size > %d\n", IVONA_MAX_DATA);
+                exit(EX_DATAERR);
+            }
+        }
+        if (a.data[a.datasize - 1] == '\n')
+        {
+            a.data[a.datasize - 1] = '\0';
+            a.datasize --;
+        }
+        if (a.datasize == 0)
+        {
+            printf("No input data.\n");
+            exit(EX_DATAERR);
+        }
+    }
+
+    char payload[300 + strlen(a.data)];
+    sprintf(payload,
+            "{\"Input\":{\"Data\":\"%s\",\"Type\":\"text/plain\"},\"OutputFormat\":{\"Codec\":\"%s\",\"SampleRate\":%d},"
+                    "\"Parameters\":{\"Rate\":\"%s\",\"Volume\":\"%s\",\"SentenceBreak\":%d,\"ParagraphBreak\":%d},"
+                    "\"Voice\":{\"Name\":\"%s\",\"Language\":\"%s\",\"Gender\":\"%s\"}}",
+            a.data, a.format, a.sample_rate, a.rate, a.volume, a.sentence_break, a.paragraph_break,
+            a.name, a.language, a.gender);
+    ivona_request("CreateSpeech", "ivonacloud.com", a.region, "tts", payload, a.secret, a.key, a.file, time(NULL));
+    return EX_OK;
 }

@@ -1,0 +1,72 @@
+#!/bin/bash
+# (c) 2016 - Dries007
+# IVONA cli interface file cache script
+#
+# You should make a config file or use globally set environment variables.
+# The '/opt/ivona/mp3/' folder should have rw permissions for this user.
+# Be aware that storing audio files may be against the IVONA ToS,
+# depending on your license agreement.
+#
+# By default this script uses cvlc, if that is not available, mplayer is used.
+#
+# Example config file
+# -------------------
+# export IVONA_NAME="Amy"
+# export IVONA_LANG="en-GB"
+# export IVONA_GENDER="Female"
+# export IVONA_ENDPOINT="eu-west-1"
+# export IVONA_KEY=">>> KEY HERE <<<"
+# export IVONA_SECRET=">>> SECRET HERE <<<"
+
+if [ $# -eq 0 ]; then
+    echo "This script will break up requests into individual arguments."
+    echo "This allows for caching of sections to reduce bandwidth usage."
+    echo "There is however no cleanup of the cache build into the script!"
+    echo "Be aware that storing audio files may be against the IVONA ToS,"
+    echo "depending on your license agreement."
+    echo "Example usage: ivona-cached \"Hello world\" \"Another sentence here.\""
+    exit 0
+fi
+
+if [ -e "~/.config/ivona" ]; then
+    source "~/.config/ivona"
+fi
+
+if [ -e "~/.ivona" ]; then
+    source "~/.ivona"
+fi
+
+# cache folder
+_mp3folder="/opt/ivona/mp3/${IVONA_NAME}_${IVONA_LANG}_${IVONA_GENDER}"
+if [ ! -d "$_mp3folder" ]; then
+    mkdir "$_mp3folder"
+    #
+    if [ $? -ne 0 ]; then
+        echo "Could not create $_mp3folder!"
+        exit 1
+    fi
+fi
+cd "$_mp3folder"
+
+# per individual argument
+for var in "$@"; do
+    # if that file isn't in cache
+    if [ ! -e "$var" ]; then
+        # do the request
+        ivona "$var" -F "$var"
+        # error code handling
+        if [ $? -ne 0 ]; then
+            echo "Could not process '$var'!"
+            # if it made a file, print it, then remove it
+            if [ -e "$var" ]; then
+                echo "Response body from curl:"
+                cat "$var"
+            fi
+            # exit with error
+            exit 1
+        fi
+    fi
+done
+
+# Play files
+command cvlc --quiet "$@" vlc://quit || mplayer -quiet "$@"
