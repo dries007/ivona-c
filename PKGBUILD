@@ -14,18 +14,19 @@ source=('git+https://github.com/dries007/ivona-c.git')
 sha256sums=('SKIP')
 
 build() {
-    cd "$srcdir/ivona-c"
+    cd "${srcdir}/ivona-c"
   	cmake .
 	cmake --build . --target all
 }
 
 pkgver() {
-    cd "$srcdir/ivona-c"
+    cd "${srcdir}/ivona-c"
     printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 package() {
-	install -Dm755 $srcdir/ivona-c/ivona "${pkgdir}/usr/bin/ivona"
-    install -Dm755 $srcdir/ivona-c/ivona-cached "${pkgdir}/usr/bin/ivona-cached"
-    mkdir -pm666 "${pkgdir}/usr/share/ivona/cache"
+    install -Dm644 "${srcdir}/ivona-c/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+	install -Dm755 "${srcdir}/ivona-c/ivona" "${pkgdir}/usr/bin/ivona"
+    install -Dm755 "${srcdir}/ivona-c/ivona-cached" "${pkgdir}/usr/bin/ivona-cached"
+    mkdir -pm777 "${pkgdir}/usr/share/${pkgname}/cache"
 }
