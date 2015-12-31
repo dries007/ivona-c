@@ -40,6 +40,6 @@
 // sizeof "YYYYMMDD"
 #define YYYYMMDD_LENGTH 8
 
-void ivona_request(char *uri_path, char *host, char *region, char *service, char *payload, char *secret, char *key, char *file, time_t time);
+void ivona_request(char uri_path[13], char host[15], char *region, char service[4], char payload[], char *secret, char *key, char *file, time_t time, bool debug);
 
 #endif

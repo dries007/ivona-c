@@ -45,6 +45,7 @@ static struct argp_option options[] = {
     { "key",            'K', "key", 0, "Key. ($IVONA_KEY)", 1},
     { "secret",         'S', "secret", 0, "Secret. ($IVONA_SECRET)", 1},
     { "file",           'F', "file", 0, "Filename to output to. (stdout)", 1},
+    { "debug",          'd', 0, 0, "Print debug output to stdout.", 4},
     { 0 }
 };
 
@@ -64,6 +65,7 @@ struct args {
     char* key;
     char* secret;
     char* file;
+    bool debug;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
@@ -84,6 +86,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         case 'K': args->key = arg; break;
         case 'S': args->secret = arg; break;
         case 'F': args->file = arg; break;
+        case 'd': args->debug = true; break;
         case ARGP_KEY_ARG:
             args->datasize += strlen(arg);
             if (args->datasize > IVONA_MAX_DATA) return ARGP_KEY_ERROR;
@@ -120,6 +123,7 @@ int main(int argc, char* argv[])
     a.file = "-";
     a.key = getenv("IVONA_KEY");
     a.secret = getenv("IVONA_SECRET");
+    a.debug = false;
 
     if (argp_parse(&argp, argc, argv, 0, 0, &a) != 0)
     {
@@ -166,6 +170,9 @@ int main(int argc, char* argv[])
                     "\"Voice\":{\"Name\":\"%s\",\"Language\":\"%s\",\"Gender\":\"%s\"}}",
             a.data, a.format, a.sample_rate, a.rate, a.volume, a.sentence_break, a.paragraph_break,
             a.name, a.language, a.gender);
-    ivona_request("CreateSpeech", "ivonacloud.com", a.region, "tts", payload, a.secret, a.key, a.file, time(NULL));
+
+    if (a.debug) printf("Payload: \n%s\n", payload);
+
+    ivona_request("CreateSpeech", "ivonacloud.com", a.region, "tts", payload, a.secret, a.key, a.file, time(NULL), a.debug);
     return EX_OK;
 }

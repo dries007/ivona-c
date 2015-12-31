@@ -54,7 +54,7 @@ void ivona_utc_yyyymmdd(time_t t, char *out)
     strftime(out, YYYYMMDD_LENGTH + 1, "%Y%m%d", gmtime(&t));
 }
 
-void ivona_request(char *uri_path, char *host, char *region, char *service, char *payload, char *secret, char *key, char *file, time_t time)
+void ivona_request(char uri_path[13], char host[15], char *region, char service[4], char payload[], char *secret, char *key, char *file, time_t time, bool debug)
 {
     FILE* bodyfile = NULL;
     bool stdout = strcmp("-", file) == 0;
@@ -73,8 +73,9 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
 
     char iso_time[ISO8601_LENGTH + 1];
     ivona_ISO8601_date(time, iso_time);
+    if (debug) printf("iso_time: %s\n", iso_time);
 
-    char canonical_request[150 + sizeof(uri_path) + sizeof(host) + sizeof(region) + sizeof(service) + SHA256_ASCII_LENGTH + ISO8601_LENGTH + SHA256_ASCII_LENGTH];
+    char canonical_request[150 + strlen(uri_path) + strlen(host) + strlen(region) + strlen(service) + SHA256_ASCII_LENGTH + ISO8601_LENGTH + SHA256_ASCII_LENGTH];
     sprintf(canonical_request,
             "POST\n/%s\n\ncontent-length:%d\ncontent-type:application/json\nhost:%s.%s.%s\nx-amz-date:%s\n\ncontent-length;content-type;host;x-amz-date\n%s",
             uri_path, (int) strlen(payload), service, region, host, iso_time, sha256_payload);
@@ -82,6 +83,7 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     //Task 2: Create a string to sign
     char yyyymmdd[YYYYMMDD_LENGTH + 1];
     ivona_utc_yyyymmdd(time, yyyymmdd);
+    if (debug) printf("yyyymmdd: %s\n", yyyymmdd);
 
     char sha256_canonical_request[SHA256_ASCII_LENGTH + 1];
     ivona_sha256(canonical_request, sha256_canonical_request);
@@ -93,7 +95,7 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     strcpy(string_to_sign, temp);
 
     //Task 3: Create a signature
-    char secret_aws4[5 + sizeof(secret)];
+    char secret_aws4[5 + strlen(secret)];
     strcpy(secret_aws4, "AWS4");
     strcat(secret_aws4, secret);
 
@@ -124,7 +126,8 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
         exit(EX_SOFTWARE);
     }
 
-    char url[sizeof(host) + sizeof(region) + sizeof(service) + sizeof(uri_path) + 15] = "https://";
+    char url[strlen(host) + strlen(region) + strlen(service) + strlen(uri_path) + 15];
+    strcpy(url, "https://");
     strcat(url, service);
     strcat(url, ".");
     strcat(url, region);
@@ -133,15 +136,18 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     strcat(url, "/");
     strcat(url, uri_path);
 
+    if (debug) printf("URL: %s\n", url);
+
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(payload));
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
-    //curl_easy_setopt(curl, CURLOPT_FAILONERROR, true);
+    if (!debug) curl_easy_setopt(curl, CURLOPT_FAILONERROR, true);
 
     struct curl_slist *chunk = NULL;
     chunk = curl_slist_append(chunk, "Accept:");
     chunk = curl_slist_append(chunk, "Content-type: application/json");
-    char date[15 + ISO8601_LENGTH] = "X-Amz-Date: ";
+    char date[15 + ISO8601_LENGTH];
+    strcpy(date, "X-Amz-Date: ");
     strcat(date, iso_time);
     chunk = curl_slist_append(chunk, date);
     chunk = curl_slist_append(chunk, header);
