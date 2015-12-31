@@ -136,7 +136,7 @@ void ivona_request(char *uri_path, char *host, char *region, char *service, char
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(payload));
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
-    curl_easy_setopt(curl, CURLOPT_FAILONERROR, true);
+    //curl_easy_setopt(curl, CURLOPT_FAILONERROR, true);
 
     struct curl_slist *chunk = NULL;
     chunk = curl_slist_append(chunk, "Accept:");
