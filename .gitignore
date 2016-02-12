@@ -1,4 +1,6 @@
 run
+aur/
+
 ### CMake template
 CMakeCache.txt
 CMakeFiles
